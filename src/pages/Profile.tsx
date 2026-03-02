@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Mail } from 'lucide-react';
-import { Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 
 export const Profile = () => {
     const [session, setSession] = useState<Session | null>(null);
