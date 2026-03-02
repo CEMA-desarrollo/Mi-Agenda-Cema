@@ -42,6 +42,7 @@ interface CalendarEvent {
         status: string;
         is_domicilio: boolean;
         patientName: string;
+        appointmentTitle: string;
         resourceName: string;
         providerName: string;
         notes: string | null;
@@ -137,6 +138,7 @@ export const Agenda = () => {
                         status: apt.status,
                         is_domicilio: apt.is_domicilio,
                         patientName: patientName,
+                        appointmentTitle: apt.title || 'Consulta General',
                         resourceName: apt.resources?.name || 'No asignado',
                         providerName: apt.providers?.name || 'Sin tratante',
                         notes: apt.notes
@@ -221,18 +223,16 @@ export const Agenda = () => {
                 </div>
             </div>
 
-            {/* Event Details Modal (Bottom Sheet on Mobile) */}
+            {/* Event Details Modal (Centered Card) */}
             {showEventDetails && selectedEvent && (
                 <div
-                    className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity"
+                    className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity p-4 sm:p-6"
                     onClick={() => setShowEventDetails(false)}
                 >
                     <div
-                        className="bg-white w-full sm:w-[500px] rounded-t-[32px] sm:rounded-2xl shadow-2xl animate-in slide-in-from-bottom-20 flex flex-col max-h-[90vh] pb-8 pt-4 sm:p-6"
+                        className="bg-white w-full max-w-[420px] rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 flex flex-col max-h-[85vh] p-5 sm:p-6 overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Drag Handle Indicator */}
-                        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4 sm:hidden flex-shrink-0"></div>
 
                         <div className="flex items-center justify-between px-6 sm:px-0 mb-4 flex-shrink-0">
                             <h2 className="font-bold tracking-tight text-xl text-slate-800">
@@ -251,11 +251,11 @@ export const Agenda = () => {
                                 {/* Color line accent */}
                                 <div className="absolute top-0 left-0 bottom-0 w-2" style={{ backgroundColor: selectedEvent.backgroundColor }}></div>
 
-                                <h3 className="text-xl font-bold text-slate-800 mb-1 ml-3 mt-1">
+                                <h3 className="text-xl font-bold text-slate-800 mb-1 ml-3 mt-1 leading-tight">
                                     {selectedEvent.extendedProps.patientName}
                                 </h3>
                                 <p className="text-slate-500 font-medium mb-5 ml-3 text-sm">
-                                    {selectedEvent.title.split(' - ')[1] || 'Consulta General'}
+                                    {selectedEvent.extendedProps.appointmentTitle}
                                 </p>
 
                                 <div className="space-y-4 ml-3">
