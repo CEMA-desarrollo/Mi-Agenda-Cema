@@ -28,6 +28,11 @@ interface Appointment {
         name: string;
         color: string | null;
     } | null;
+    appointment_procedures: {
+        procedures: {
+            name: string;
+        } | null;
+    }[] | null;
 }
 
 // Interface for FullCalendar Event parsing
@@ -99,7 +104,8 @@ export const Agenda = () => {
                 id, local_id, title, start_time, end_time, notes, status, is_domicilio,
                 patients ( first_name, last_name ),
                 resources ( name ),
-                providers ( name, color, email )
+                providers ( name, color, email ),
+                appointment_procedures ( procedures ( name ) )
             `)
             .gte('start_time', fetchInfo.startStr)
             .lt('start_time', fetchInfo.endStr)
@@ -127,9 +133,22 @@ export const Agenda = () => {
 
                 const patientName = apt.patients ? `${apt.patients.first_name} ${apt.patients.last_name}` : 'Desconocido';
 
+                // Format Procedures
+                let appointmentTitle = apt.title || 'Consulta General';
+                if (apt.appointment_procedures && apt.appointment_procedures.length > 0) {
+                    const procedureNames = apt.appointment_procedures
+                        .map(ap => ap.procedures?.name)
+                        .filter(Boolean)
+                        .join(', ');
+
+                    if (procedureNames) {
+                        appointmentTitle = procedureNames;
+                    }
+                }
+
                 return {
                     id: apt.id,
-                    title: `${patientName} - ${apt.title || 'Consulta'}`,
+                    title: `${patientName} - ${appointmentTitle}`,
                     start: apt.start_time,
                     end: apt.end_time,
                     backgroundColor: bgColor,
@@ -138,7 +157,7 @@ export const Agenda = () => {
                         status: apt.status,
                         is_domicilio: apt.is_domicilio,
                         patientName: patientName,
-                        appointmentTitle: apt.title || 'Consulta General',
+                        appointmentTitle: appointmentTitle,
                         resourceName: apt.resources?.name || 'No asignado',
                         providerName: apt.providers?.name || 'Sin tratante',
                         notes: apt.notes
