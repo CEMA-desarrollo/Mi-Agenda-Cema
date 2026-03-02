@@ -224,7 +224,7 @@ export const Agenda = () => {
             {/* Event Details Modal (Bottom Sheet on Mobile) */}
             {showEventDetails && selectedEvent && (
                 <div
-                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity"
+                    className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity"
                     onClick={() => setShowEventDetails(false)}
                 >
                     <div
