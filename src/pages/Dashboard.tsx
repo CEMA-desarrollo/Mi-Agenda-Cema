@@ -92,7 +92,8 @@ export const Dashboard = () => {
                     )
                 `)
                 .gte('start_time', todayStart)
-                .lte('start_time', todayEnd);
+                .lte('start_time', todayEnd)
+                .eq('status', 'attended');
 
             if (!isMaster) {
                 // Si no es maestro, forzar a que filtre por el id del doctor
