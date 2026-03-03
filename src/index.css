@@ -29,7 +29,44 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* --- Correcciones react-big-calendar para móviles (Solapamiento) --- */
+
+.rbc-event {
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  /* Borde sutil para separar eventos adjuntos */
+  margin-left: 1px !important;
+  /* Mini margen para evitar que se peguen totalmente */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.rbc-event-content {
+  font-size: 0.75rem;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Permitir multilínea si hay espacio vertical, si no, lo corta limpio */
+  white-space: normal !important;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  /* Máximo de líneas visibles antes de cortarse */
+  -webkit-box-orient: vertical;
+}
+
+.rbc-event-label {
+  font-size: 0.70rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+  display: block;
 }

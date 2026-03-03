@@ -16,8 +16,12 @@ async function syncProcedures() {
     });
 
     try {
-        console.log('1. Extrayendo Procedimientos de MySQL...');
-        const [procedures] = await conn.query('SELECT * FROM procedures');
+        const isFullSync = process.argv.includes('--full');
+        const timeFilterProc = isFullSync ? "" : "WHERE updatedAt >= NOW() - INTERVAL 1 DAY";
+        const timeFilterRel = isFullSync ? "" : "WHERE appointmentId IN (SELECT id FROM appointments WHERE updatedAt >= NOW() - INTERVAL 1 DAY)";
+
+        console.log(`1. Extrayendo Procedimientos de MySQL (Modo: ${isFullSync ? 'COMPLETO' : 'INCREMENTAL 24H'})...`);
+        const [procedures] = await conn.query(`SELECT * FROM procedures ${timeFilterProc}`);
         console.log(`   Se encontraron ${procedures.length} procedimientos.`);
 
         const supabaseProcedures = procedures.map(p => ({
@@ -37,7 +41,7 @@ async function syncProcedures() {
         console.log('   ✅ Procedimientos sincronizados con éxito.');
 
         console.log('\n2. Extrayendo relaciones Cita-Procedimiento de MySQL...');
-        const [appProcs] = await conn.query('SELECT * FROM AppointmentProcedures');
+        const [appProcs] = await conn.query(`SELECT * FROM AppointmentProcedures ${timeFilterRel}`);
         console.log(`   Se encontraron ${appProcs.length} relaciones.`);
 
         const supabaseAppProcs = appProcs.map(ap => ({

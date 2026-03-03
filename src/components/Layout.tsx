@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { CalendarDays, User, LogOut } from 'lucide-react';
+import { CalendarDays, User, LogOut, BarChart3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export const Layout = () => {
@@ -22,6 +22,16 @@ export const Layout = () => {
                 >
                     <CalendarDays size={24} />
                     <span className="text-xs font-medium">Mi Agenda</span>
+                </NavLink>
+
+                <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) =>
+                        `flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-primary-600' : 'text-slate-500 hover:text-slate-800'}`
+                    }
+                >
+                    <BarChart3 size={24} />
+                    <span className="text-xs font-medium">Estadísticas</span>
                 </NavLink>
 
                 <NavLink
