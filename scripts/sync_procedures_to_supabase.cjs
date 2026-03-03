@@ -54,6 +54,22 @@ async function syncProcedures() {
         const chunkSize = 200;
         let successCount = 0;
 
+        // Limpiar todas las asociaciones en Supabase para las citas involucradas 
+        // antes de reinsertar las actuales, evitando que los borrados en MySQL se queden "huerfanos" en Supabase.
+        const apptLocalIds = [...new Set(supabaseAppProcs.map(ap => ap.appointment_local_id))];
+        console.log(`   Preparando limpieza de ${apptLocalIds.length} citas...`);
+
+        // Borrar en lotes para no exceder límites de postgREST
+        for (let i = 0; i < apptLocalIds.length; i += 50) {
+            const chunkIds = apptLocalIds.slice(i, i + 50);
+            await supabase
+                .from('appointment_procedures')
+                .delete()
+                .in('appointment_local_id', chunkIds);
+        }
+
+        console.log('   Enviando nuevas relaciones a Supabase (Procesando en lotes)...');
+
         for (let i = 0; i < supabaseAppProcs.length; i += chunkSize) {
             const chunk = supabaseAppProcs.slice(i, i + chunkSize);
             const { error: relError } = await supabase
