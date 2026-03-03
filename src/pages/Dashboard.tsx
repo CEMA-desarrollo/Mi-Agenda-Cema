@@ -40,24 +40,30 @@ export const Dashboard = () => {
             const { data: userData, error: userError } = await supabase.auth.getUser();
             if (userError || !userData?.user) throw userError;
 
-            // El ID del doctor viene en los metadatos de app (o user_metadata dependiendo de cómo se guardó)
-            const providerId = userData.user.user_metadata?.provider_local_id || userData.user.app_metadata?.provider_local_id;
+            const userEmail = userData.user.email?.toLowerCase() || '';
 
-            // Obtener nombre del doctor
-            const { data: providerData } = await supabase
-                .from('providers')
-                .select('name')
-                .eq('local_id', providerId)
-                .single();
+            // Solo el correo principal de CEMA o que contenga cema en su root actua como máster
+            const isMaster = userEmail === 'cemabqtoca@gmail.com' || userEmail.includes('cema');
 
-            // Si el nombre del doctor no existe directamente, es porque es la cuenta MASTER
-            // En el sistema CitaLocal, la cuenta de la clínica suele tener ID 1 o no estar ligada a un médico físico.
-            const isMaster = userData.user.email?.toLowerCase().includes('cema') || providerId === 1 || !providerId;
+            let targetProviderId: number | null = null;
 
             if (isMaster) {
                 setDoctorName('Clínica CEMA (Global)');
-            } else if (providerData) {
-                setDoctorName(providerData.name);
+            } else {
+                // Obtener nombre e ID del doctor buscando su correo en la tabla providers
+                const { data: providerData, error: providerError } = await supabase
+                    .from('providers')
+                    .select('local_id, name')
+                    .eq('email', userEmail)
+                    .single();
+
+                if (!providerError && providerData) {
+                    targetProviderId = providerData.local_id;
+                    setDoctorName(providerData.name);
+                } else {
+                    console.warn(`No provider linked to email: ${userEmail}`);
+                    setDoctorName('Usuario Sin Asignar');
+                }
             }
 
             // 2. Definir rango de fechas basado en 'selectedDate'
@@ -88,8 +94,10 @@ export const Dashboard = () => {
                 .gte('start_time', todayStart)
                 .lte('start_time', todayEnd);
 
-            if (!isMaster && providerId) {
-                query = query.eq('provider_local_id', providerId);
+            if (!isMaster) {
+                // Si no es maestro, forzar a que filtre por el id del doctor
+                // Si por alguna razón targetProviderId es null, enviar un ID que no exista para no filtrar global
+                query = query.eq('provider_local_id', targetProviderId !== null ? targetProviderId : -1);
             }
 
             const { data: appointments, error: apptError } = await query;
