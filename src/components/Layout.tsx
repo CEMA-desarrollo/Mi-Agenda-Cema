@@ -1,11 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { CalendarDays, User, LogOut, BarChart3 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { CalendarDays, User, BarChart3 } from 'lucide-react';
 
 export const Layout = () => {
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-    };
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
@@ -44,13 +40,7 @@ export const Layout = () => {
                     <span className="text-xs font-medium">Perfil</span>
                 </NavLink>
 
-                <button
-                    onClick={handleLogout}
-                    className="flex flex-col items-center gap-1 text-slate-500 hover:text-red-500 transition-colors"
-                >
-                    <LogOut size={24} />
-                    <span className="text-xs font-medium">Salir</span>
-                </button>
+                {/* Botón Salir Removido intencionalmente por usabilidad */}
             </nav>
         </div>
     );
