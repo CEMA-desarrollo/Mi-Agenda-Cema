@@ -6,6 +6,13 @@ import { precacheAndRoute } from 'workbox-precaching';
 
 precacheAndRoute(self.__WB_MANIFEST || []);
 
+// Escuchar mensaje SKIP_WAITING proveniente del ReloadPrompt.tsx para forzar actualización
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 // Escuchar el evento Push que viene de nuestro servidor local o externo
 self.addEventListener('push', (event) => {
     const data = event.data?.json() ?? {

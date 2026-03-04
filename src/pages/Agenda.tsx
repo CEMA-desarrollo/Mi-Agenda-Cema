@@ -220,6 +220,7 @@ export const Agenda = () => {
                         loading={(isLoading) => setLoading(isLoading)}
                         eventClick={handleEventClick}
                         allDaySlot={false}
+                        displayEventTime={false}
                         slotMinTime="07:00:00"
                         slotMaxTime="22:00:00"
                         height="100%"
