@@ -3,12 +3,18 @@ import { supabase } from '../lib/supabase';
 import { User, Mail, Moon, Sun, Monitor, LogOut, Bell } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { useTheme } from '../components/ThemeProvider';
-import { subscribeToPushNotifications } from '../lib/push';
+import {
+    subscribeToPushNotifications,
+    unsubscribeFromPushNotifications,
+    checkPushSubscription
+} from '../lib/push';
+
 export const Profile = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [providerName, setProviderName] = useState<string | null>(null);
     const [providerId, setProviderId] = useState<string | null>(null);
-    const [isSubscribing, setIsSubscribing] = useState(false);
+    const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null); // null = cargando
+    const [isTogglingPush, setIsTogglingPush] = useState(false);
     const { theme, setTheme } = useTheme();
 
     useEffect(() => {
@@ -25,31 +31,51 @@ export const Profile = () => {
             .from('providers')
             .select('id, name')
             .eq('email', email)
-            .single();
+            .maybeSingle();
 
         if (data) {
             setProviderName(data.name);
             setProviderId(data.id);
+            // Verificar si ya tiene suscripción activa
+            const subscribed = await checkPushSubscription(data.id);
+            setIsSubscribed(subscribed);
+        } else {
+            // El doctor no tiene registro exacto en providers, permitir igualmente
+            setIsSubscribed(false);
         }
     };
 
-    const handleSubscribePush = async () => {
-        if (!providerId) return;
-        setIsSubscribing(true);
-        const success = await subscribeToPushNotifications(providerId);
-        if (success) {
-            alert('¡Notificaciones activadas exitosamente!');
+    const handleTogglePush = async () => {
+        if (isTogglingPush) return;
+        setIsTogglingPush(true);
+
+        if (isSubscribed) {
+            // Desactivar
+            if (providerId) {
+                const ok = await unsubscribeFromPushNotifications(providerId);
+                if (ok) setIsSubscribed(false);
+                else alert('No se pudo desactivar. Intenta de nuevo.');
+            } else {
+                setIsSubscribed(false);
+            }
         } else {
-            alert('No se pudo activar las notificaciones. Verifica los permisos de tu navegador.');
+            // Activar: si no hay providerId, aun así intentamos (el navegador pedirá permiso)
+            const idToUse = providerId ?? 'unknown';
+            const ok = await subscribeToPushNotifications(idToUse);
+            if (ok) {
+                setIsSubscribed(true);
+            } else {
+                alert('No se pudo activar las notificaciones. Verifica que tu navegador tenga permisos.');
+            }
         }
-        setIsSubscribing(false);
+
+        setIsTogglingPush(false);
     };
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
     };
 
-    // Fallbacks para metadata de Google
     const googleName = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name;
     const displayName = providerName || googleName || 'Médico CitaLocal';
     const avatarUrl = session?.user?.user_metadata?.avatar_url;
@@ -82,29 +108,40 @@ export const Profile = () => {
                     <span className="text-sm font-medium">{session?.user?.email || 'Cargando correo...'}</span>
                 </div>
 
-                {/* Accesos Rápidos */}
+                {/* Toggle de Notificaciones Push */}
                 <div className="w-full mb-6">
-                    <button
-                        onClick={handleSubscribePush}
-                        disabled={isSubscribing || !providerId}
-                        className="w-full flex items-center justify-between bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 p-4 rounded-xl border border-primary-100 dark:border-primary-800/30 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors disabled:opacity-50"
-                    >
+                    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white dark:bg-primary-800 rounded-lg shadow-sm">
-                                <Bell size={20} className="text-primary-600 dark:text-primary-400" />
+                            <div className={`p-2 rounded-xl shadow-sm transition-colors ${isSubscribed ? 'bg-emerald-100 dark:bg-emerald-800/30' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                <Bell size={20} className={isSubscribed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'} />
                             </div>
                             <div className="text-left">
-                                <p className="font-semibold text-sm">Notificaciones Push</p>
-                                <p className="text-xs opacity-80">Recibir alertas de nuevas citas</p>
+                                <p className="font-semibold text-sm text-slate-800 dark:text-white">Notificaciones Push</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    {isSubscribed === null
+                                        ? 'Verificando estado...'
+                                        : isSubscribed
+                                            ? 'Recibirás alertas de nuevas citas'
+                                            : 'Activa para recibir alertas de citas'}
+                                </p>
                             </div>
                         </div>
-                        <span className="text-sm font-bold bg-primary-600 text-white px-3 py-1 rounded-full">
-                            {isSubscribing ? '...' : 'Activar'}
-                        </span>
-                    </button>
+
+                        {/* Toggle Switch */}
+                        <button
+                            onClick={handleTogglePush}
+                            disabled={isTogglingPush || isSubscribed === null}
+                            aria-label={isSubscribed ? 'Desactivar notificaciones' : 'Activar notificaciones'}
+                            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none disabled:opacity-50 ${isSubscribed ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                        >
+                            <span
+                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${isSubscribed ? 'translate-x-6' : 'translate-x-1'}`}
+                            />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Opciones de Preferencias */}
+                {/* Preferencias Visuales */}
                 <div className="w-full mb-8">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 px-2">
                         Preferencias Visuales
@@ -131,7 +168,7 @@ export const Profile = () => {
                     </div>
                 </div>
 
-                {/* Botón Peligro - Cerrar sesión */}
+                {/* Botón Cerrar Sesión */}
                 <button
                     onClick={handleLogout}
                     className="w-full flex items-center justify-center gap-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 font-bold py-3.5 rounded-2xl transition-colors mt-auto border border-red-100 dark:border-red-500/20"
