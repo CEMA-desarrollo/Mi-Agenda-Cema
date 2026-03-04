@@ -47,18 +47,20 @@ export const Profile = () => {
 
     const handleTogglePush = async () => {
         if (isTogglingPush) return;
+
+        if (!providerId) {
+            alert('Tu cuenta de usuario no está vinculada a ningún médico en el sistema.\n\nPide al administrador que asocie tu correo electrónico en la configuración de usuarios.');
+            return;
+        }
+
         setIsTogglingPush(true);
 
         if (isSubscribed) {
-            // Desactivar
-            const idToUse = providerId ?? 'unknown';
-            const ok = await unsubscribeFromPushNotifications(idToUse);
+            const ok = await unsubscribeFromPushNotifications(providerId);
             if (ok) setIsSubscribed(false);
             else alert('No se pudo desactivar. Intenta de nuevo.');
         } else {
-            // Activar
-            const idToUse = providerId ?? 'unknown';
-            const errorMsg = await subscribeToPushNotifications(idToUse);
+            const errorMsg = await subscribeToPushNotifications(providerId);
             if (errorMsg === null) {
                 setIsSubscribed(true);
             } else {
