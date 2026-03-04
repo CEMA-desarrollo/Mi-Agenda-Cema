@@ -52,7 +52,7 @@ export const ReloadPrompt = () => {
                 <div className="flex items-center gap-2">
                     {needRefresh && (
                         <button
-                            onClick={() => updateServiceWorker({ pwaRegister: true })}
+                            onClick={() => updateServiceWorker(true)}
                             className="px-3 py-1.5 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors shadow-sm"
                         >
                             Recargar
