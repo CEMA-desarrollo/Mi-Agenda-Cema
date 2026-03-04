@@ -9,16 +9,19 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       injectRegister: 'auto',
       devOptions: {
         enabled: false
       },
       manifest: {
-        name: 'CitaLocal PWA',
-        short_name: 'CitaLocal',
-        description: 'Agenda para Doctores',
+        name: 'Mi Agenda Cema',
+        short_name: 'Mi Agenda Cema',
+        description: 'Gestión de citas para doctores de clínica Cema.',
         theme_color: '#ffffff',
+        background_color: '#ffffff',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -30,6 +33,12 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
+          },
+          {
+            src: 'ios/192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'apple-touch-icon'
           }
         ]
       }

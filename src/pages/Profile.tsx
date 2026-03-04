@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Mail, Moon, Sun, Monitor, LogOut } from 'lucide-react';
+import { User, Mail, Moon, Sun, Monitor, LogOut, Bell } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { useTheme } from '../components/ThemeProvider';
-
+import { subscribeToPushNotifications } from '../lib/push';
 export const Profile = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [providerName, setProviderName] = useState<string | null>(null);
+    const [providerId, setProviderId] = useState<string | null>(null);
+    const [isSubscribing, setIsSubscribing] = useState(false);
     const { theme, setTheme } = useTheme();
 
     useEffect(() => {
@@ -21,13 +23,26 @@ export const Profile = () => {
     const fetchProviderData = async (email: string) => {
         const { data } = await supabase
             .from('providers')
-            .select('name')
+            .select('id, name')
             .eq('email', email)
             .single();
 
-        if (data && data.name) {
+        if (data) {
             setProviderName(data.name);
+            setProviderId(data.id);
         }
+    };
+
+    const handleSubscribePush = async () => {
+        if (!providerId) return;
+        setIsSubscribing(true);
+        const success = await subscribeToPushNotifications(providerId);
+        if (success) {
+            alert('¡Notificaciones activadas exitosamente!');
+        } else {
+            alert('No se pudo activar las notificaciones. Verifica los permisos de tu navegador.');
+        }
+        setIsSubscribing(false);
     };
 
     const handleLogout = async () => {
@@ -65,6 +80,28 @@ export const Profile = () => {
                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-8 bg-slate-50 dark:bg-slate-900/50 px-4 py-2 rounded-full border border-slate-100 dark:border-slate-700/50">
                     <Mail size={16} />
                     <span className="text-sm font-medium">{session?.user?.email || 'Cargando correo...'}</span>
+                </div>
+
+                {/* Accesos Rápidos */}
+                <div className="w-full mb-6">
+                    <button
+                        onClick={handleSubscribePush}
+                        disabled={isSubscribing || !providerId}
+                        className="w-full flex items-center justify-between bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 p-4 rounded-xl border border-primary-100 dark:border-primary-800/30 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors disabled:opacity-50"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white dark:bg-primary-800 rounded-lg shadow-sm">
+                                <Bell size={20} className="text-primary-600 dark:text-primary-400" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-semibold text-sm">Notificaciones Push</p>
+                                <p className="text-xs opacity-80">Recibir alertas de nuevas citas</p>
+                            </div>
+                        </div>
+                        <span className="text-sm font-bold bg-primary-600 text-white px-3 py-1 rounded-full">
+                            {isSubscribing ? '...' : 'Activar'}
+                        </span>
+                    </button>
                 </div>
 
                 {/* Opciones de Preferencias */}

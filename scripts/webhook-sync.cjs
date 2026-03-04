@@ -27,7 +27,17 @@ const server = http.createServer((req, res) => {
                     console.error(`❌ Error en Procedimientos: ${error2.message}`);
                 }
                 if (stdout2) console.log(`✅ Salida Procedimientos:\n${stdout2.substring(0, 500)}...`);
-                console.log(`[${new Date().toISOString()}] 🎉 Sincronización completa finalizada.`);
+
+                // NOTIFICACIONES PUSH
+                console.log('-> Ejecutando notify_push.cjs...');
+                const pushScript = 'd:\\Code\\CitaInternet\\citalocal-pwa\\scripts\\notify_push.cjs';
+                exec(`node "${pushScript}"`, (error3, stdout3, stderr3) => {
+                    if (error3) {
+                        console.error(`❌ Error en Notificaciones Push: ${error3.message}`);
+                    }
+                    if (stdout3) console.log(`✅ Salida Push:\n${stdout3}`);
+                    console.log(`[${new Date().toISOString()}] 🎉 Sincronización completa finalizada.`);
+                });
             });
         });
     } else {
