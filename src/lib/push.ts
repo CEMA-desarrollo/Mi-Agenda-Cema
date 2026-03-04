@@ -28,17 +28,33 @@ export const subscribeToPushNotifications = async (providerId: string): Promise<
     }
 
     try {
+        // Solicitar permiso primero
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
             console.log('Permiso de notificaciones denegado.');
             return false;
         }
 
-        const registration = await navigator.serviceWorker.ready;
+        // Esperar que el Service Worker esté completamente listo (con timeout de 10s)
+        const swReady = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('SW timeout')), 10000)
+            )
+        ]) as ServiceWorkerRegistration;
+
         const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+        if (!vapidPublicKey) {
+            console.error('VITE_VAPID_PUBLIC_KEY no configurada.');
+            return false;
+        }
         const convertedVapidKey = urlB64ToUint8Array(vapidPublicKey);
 
-        const subscription = await registration.pushManager.subscribe({
+        // Primero cancelar suscripción anterior si existe (evita errores por suscripción desactualizada)
+        const existingSub = await swReady.pushManager.getSubscription();
+        if (existingSub) await existingSub.unsubscribe();
+
+        const subscription = await swReady.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: convertedVapidKey,
         });
