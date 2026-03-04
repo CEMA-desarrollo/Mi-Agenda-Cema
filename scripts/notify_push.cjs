@@ -24,15 +24,16 @@ async function notifyPendingAppointments() {
     try {
         console.log(`[Push Notification Service] Buscando nuevas citas...`);
 
-        // 1. Obtener citas no notificadas (y evitar enviar spam viejo, solo último día)
+        // Solo citas del último día que no hayan sido notificadas
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
 
         const { data: appointments, error } = await supabase
             .from('appointments')
             .select(`
-                id, date, start_time, patient_id, provider_id, status,
-                patients(name, last_name)
+                id, start_time, end_time, status, provider_local_id,
+                patients ( first_name, last_name ),
+                providers ( id, name, email )
             `)
             .eq('push_sent', false)
             .gte('created_at', yesterday.toISOString())
@@ -45,46 +46,70 @@ async function notifyPendingAppointments() {
             return;
         }
 
-        console.log(`[Push Notification Service] Procesando ${appointments.length} notificaciones nuevas.`);
+        console.log(`[Push Notification Service] Procesando ${appointments.length} notificación(es) nuevas.`);
 
         for (const apt of appointments) {
-            // 2. Buscar si el provider tiene una suscripción Push activa
-            const { data: subData, error: subError } = await supabase
-                .from('push_subscriptions')
-                .select('subscription')
-                .eq('provider_id', apt.provider_id)
-                .single();
+            // El UUID del médico viene del JOIN con providers
+            const providerUUID = apt.providers?.id;
 
-            if (subError || !subData || !subData.subscription) {
-                // Si no tiene suscripción igual lo marcamos como enviado para no reintentar infinitamente
+            if (!providerUUID) {
+                console.log(`⚠️ Cita ID ${apt.id}: No se encontró el médico (local_id: ${apt.provider_local_id}). Marcando como enviado.`);
                 await markAsSent(apt.id);
                 continue;
             }
 
-            // 3. Preparar el contenido del Push
-            const patientName = apt.patients ? `${apt.patients.name} ${apt.patients.last_name}` : 'Paciente Nuevo';
+            // Buscar si el médico tiene una suscripción Push activa
+            const { data: subData, error: subError } = await supabase
+                .from('push_subscriptions')
+                .select('subscription')
+                .eq('provider_id', providerUUID)
+                .maybeSingle();
+
+            if (subError || !subData || !subData.subscription) {
+                console.log(`ℹ️ Cita ID ${apt.id}: Médico sin suscripción push activa (UUID: ${providerUUID}). Marcando como enviado.`);
+                await markAsSent(apt.id);
+                continue;
+            }
+
+            // Preparar contenido de la notificación
+            const patient = apt.patients;
+            const patientName = patient
+                ? `${patient.first_name} ${patient.last_name}`.trim()
+                : 'Paciente Nuevo';
+
+            // Formatear fecha y hora legible en español
+            const startDate = apt.start_time ? new Date(apt.start_time) : null;
+            const fechaFormateada = startDate
+                ? startDate.toLocaleString('es-VE', {
+                    weekday: 'long', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', hour12: true
+                })
+                : 'Horario por confirmar';
+
             const payload = JSON.stringify({
-                title: 'NUEVA CITA AGENDADA 📅',
-                body: `Se reservó a: ${patientName} el día ${apt.date || ''} a las ${apt.start_time || ''}`,
+                title: '📅 NUEVA CITA AGENDADA',
+                body: `${patientName} — ${fechaFormateada}`,
                 url: '/'
             });
 
-            // 4. Enviar notificación Push mediante Google/Apple Push Servers
+            // Enviar notificación Push
             try {
                 await webpush.sendNotification(subData.subscription, payload);
-                console.log(`✅ Push enviado al Doctor ID: ${apt.provider_id} por la Cita ID: ${apt.id}`);
+                console.log(`✅ Push enviado: Médico ${apt.providers?.name} → Paciente ${patientName} (Cita ID: ${apt.id})`);
             } catch (pushErr) {
                 if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-                    console.log(`⚠️ Suscripción de Doctor ID ${apt.provider_id} expiró o es inválida, borrando de DB...`);
-                    await supabase.from('push_subscriptions').delete().eq('provider_id', apt.provider_id);
+                    console.log(`⚠️ Suscripción de médico ${providerUUID} expiró o es inválida, borrando de DB...`);
+                    await supabase.from('push_subscriptions').delete().eq('provider_id', providerUUID);
                 } else {
-                    console.error(`❌ Error enviando push:`, pushErr.body || pushErr);
+                    console.error(`❌ Error enviando push a ${providerUUID}:`, pushErr.body || pushErr);
                 }
             }
 
-            // 5. Marcar como enviado en Supabase
+            // Marcar como enviado
             await markAsSent(apt.id);
         }
+
+        console.log(`[Push Notification Service] Finalizado.`);
     } catch (error) {
         console.error('❌ Fallo Crítico en el Servicio de Notificaciones Push:', error);
     }
