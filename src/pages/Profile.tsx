@@ -51,21 +51,18 @@ export const Profile = () => {
 
         if (isSubscribed) {
             // Desactivar
-            if (providerId) {
-                const ok = await unsubscribeFromPushNotifications(providerId);
-                if (ok) setIsSubscribed(false);
-                else alert('No se pudo desactivar. Intenta de nuevo.');
-            } else {
-                setIsSubscribed(false);
-            }
-        } else {
-            // Activar: si no hay providerId, aun así intentamos (el navegador pedirá permiso)
             const idToUse = providerId ?? 'unknown';
-            const ok = await subscribeToPushNotifications(idToUse);
-            if (ok) {
+            const ok = await unsubscribeFromPushNotifications(idToUse);
+            if (ok) setIsSubscribed(false);
+            else alert('No se pudo desactivar. Intenta de nuevo.');
+        } else {
+            // Activar
+            const idToUse = providerId ?? 'unknown';
+            const errorMsg = await subscribeToPushNotifications(idToUse);
+            if (errorMsg === null) {
                 setIsSubscribed(true);
             } else {
-                alert('No se pudo activar las notificaciones. Verifica que tu navegador tenga permisos.');
+                alert(`Error al activar notificaciones:\n\n${errorMsg}`);
             }
         }
 

@@ -21,44 +21,67 @@ export const checkPushSubscription = async (providerId: string): Promise<boolean
     return !!data;
 };
 
-export const subscribeToPushNotifications = async (providerId: string): Promise<boolean> => {
+// Returns null on success, or an error string describing exactly what went wrong
+export const subscribeToPushNotifications = async (providerId: string): Promise<string | null> => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.warn('Push messaging is not supported');
-        return false;
+        return 'Tu navegador no es compatible con Notificaciones Push.';
     }
 
     try {
-        // Solicitar permiso primero
+        // 1. Pedir permiso
         const permission = await Notification.requestPermission();
+        if (permission === 'denied') {
+            return 'Permiso denegado por el sistema. Ve a Ajustes del Navegador → Notificaciones y actívalo manualmente para este sitio.';
+        }
         if (permission !== 'granted') {
-            console.log('Permiso de notificaciones denegado.');
-            return false;
+            return 'No se otorgó permiso de notificaciones. Intenta de nuevo y pulsa "Permitir".';
         }
 
-        // Esperar que el Service Worker esté completamente listo (con timeout de 10s)
-        const swReady = await Promise.race([
-            navigator.serviceWorker.ready,
-            new Promise<null>((_, reject) =>
-                setTimeout(() => reject(new Error('SW timeout')), 10000)
-            )
-        ]) as ServiceWorkerRegistration;
+        // 2. Esperar Service Worker activo (10s timeout)
+        let swReady: ServiceWorkerRegistration;
+        try {
+            swReady = await Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('SW_TIMEOUT')), 10000)
+                )
+            ]) as ServiceWorkerRegistration;
+        } catch (e: any) {
+            if (e?.message === 'SW_TIMEOUT') {
+                return 'El Service Worker tardó demasiado en activarse. Recarga la página y vuelve a intentarlo.';
+            }
+            return `Error al iniciar el Service Worker: ${e?.message}`;
+        }
 
+        // 3. Verificar clave VAPID
         const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
         if (!vapidPublicKey) {
-            console.error('VITE_VAPID_PUBLIC_KEY no configurada.');
-            return false;
+            return 'Clave VAPID no configurada. Contacta al administrador.';
         }
-        const convertedVapidKey = urlB64ToUint8Array(vapidPublicKey);
 
-        // Primero cancelar suscripción anterior si existe (evita errores por suscripción desactualizada)
+        let convertedVapidKey: Uint8Array;
+        try {
+            convertedVapidKey = urlB64ToUint8Array(vapidPublicKey);
+        } catch (e: any) {
+            return `Error al procesar la clave VAPID: ${e?.message}`;
+        }
+
+        // 4. Cancelar suscripción anterior si existe
         const existingSub = await swReady.pushManager.getSubscription();
         if (existingSub) await existingSub.unsubscribe();
 
-        const subscription = await swReady.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedVapidKey,
-        });
+        // 5. Crear nueva suscripción
+        let subscription: PushSubscription;
+        try {
+            subscription = await swReady.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey.buffer as ArrayBuffer,
+            });
+        } catch (e: any) {
+            return `Error al suscribirse al servidor push: ${e?.message}. Es posible que el navegador haya bloqueado notificaciones para este sitio.`;
+        }
 
+        // 6. Guardar en Supabase
         const { error } = await supabase
             .from('push_subscriptions')
             .upsert(
@@ -71,30 +94,23 @@ export const subscribeToPushNotifications = async (providerId: string): Promise<
             );
 
         if (error) {
-            console.error('Error guardando suscripción push:', error);
-            return false;
+            return `Error al guardar la suscripción en la base de datos: ${error.message}`;
         }
 
-        console.log('Suscripción Push exitosa y guardada en DB.');
-        return true;
-    } catch (err) {
-        console.error('Error suscribiendo al push:', err);
-        return false;
+        return null; // null = éxito
+    } catch (err: any) {
+        return `Error inesperado: ${err?.message ?? String(err)}`;
     }
 };
 
 export const unsubscribeFromPushNotifications = async (providerId: string): Promise<boolean> => {
     try {
-        // Desuscribir del navegador
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             const registration = await navigator.serviceWorker.ready;
             const subscription = await registration.pushManager.getSubscription();
-            if (subscription) {
-                await subscription.unsubscribe();
-            }
+            if (subscription) await subscription.unsubscribe();
         }
 
-        // Borrar de Supabase
         const { error } = await supabase
             .from('push_subscriptions')
             .delete()
@@ -105,7 +121,6 @@ export const unsubscribeFromPushNotifications = async (providerId: string): Prom
             return false;
         }
 
-        console.log('Suscripción Push eliminada correctamente.');
         return true;
     } catch (err) {
         console.error('Error desuscribiendo del push:', err);
